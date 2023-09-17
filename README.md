@@ -7,7 +7,7 @@ this world might get a rework soon so stay tuned i guess!
 Credits:
 
 
-"Pineappleman9339" (aka "Peppino"):
+"Pineappleman9339" (aka "mario"):
 making the suggestions for this world thing so i could make this
 and for making me want to continue this smbx2 world!
 
