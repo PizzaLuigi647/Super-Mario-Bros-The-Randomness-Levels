@@ -5,6 +5,11 @@ this world might get a rework soon so stay tuned i guess!
 ----------------------------------------------------------------
 Credits:
 
+
+Pineappleman9339 (aka Peppino):
+making the suggestions for this world thing so i could make this
+and for making me want to continue this smbx2 world!
+
 PauseMenu.lua - Made By Marioman2007
 https://www.smbxgame.com/forums/viewtopic.php?t=27998
  
