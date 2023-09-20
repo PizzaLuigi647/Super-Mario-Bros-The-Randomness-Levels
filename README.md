@@ -23,5 +23,8 @@ https://www.smbxgame.com/forums/viewtopic.php?t=27542
 FakeBlocks.lua - Made By "Sambo"
 https://www.smbxgame.com/forums/viewtopic.php?f=101&t=27892
 
+anotherwalljump.lua - Made By "Emral"
+https://www.smbxgame.com/forums/viewtopic.php?t=24793
+
 charnames.lua - Made By AndrewPixel
 https://www.smbxgame.com/forums/viewtopic.php?t=27841
