@@ -13,6 +13,12 @@ and for making me want to continue this smbx2 world!
 
 PauseMenu.lua - Made By "Marioman2007"
 https://www.smbxgame.com/forums/viewtopic.php?t=27998
+
+Bowsers Fury inventory system/inventory.lua - Made By "Coldcolor900"
+https://www.smbxgame.com/forums/viewtopic.php?f=101&p=390294&t=27691&sid=f4f2a33aef98654782bcd31a2fc0045e
+
+furyinventory.lua - a mod of inventory.lua - Made By SpencerlyEverly
+https://www.smbxgame.com/forums/viewtopic.php?p=393135#p393135
  
 littleDialogue.lua - Made By "MrDoubleA"
 https://www.smbxgame.com/forums/viewtopic.php?t=27449
