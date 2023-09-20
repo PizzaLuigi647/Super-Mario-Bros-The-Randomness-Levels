@@ -19,6 +19,9 @@ https://www.smbxgame.com/forums/viewtopic.php?f=101&p=390294&t=27691&sid=f4f2a33
 
 furyinventory.lua - a mod of inventory.lua - Made By SpencerlyEverly
 https://www.smbxgame.com/forums/viewtopic.php?p=393135#p393135
+
+modernReserveItems.lua - Made By "KBM-Quine"
+https://www.smbxgame.com/forums/viewtopic.php?f=101&t=26306
  
 littleDialogue.lua - Made By "MrDoubleA"
 https://www.smbxgame.com/forums/viewtopic.php?t=27449
