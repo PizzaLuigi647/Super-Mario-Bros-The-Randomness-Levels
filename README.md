@@ -16,8 +16,7 @@ and for making me want to continue this smbx2 world!
 Super Mario Bros. SNES Logo - Ripeed By "Storice"/"Mattrizzle"
 https://www.spriters-resource.com/snes/smassmb1/sheet/132613/
 
-SMB SNES "The Lost Levels" / "For Super Players" Expanded Font
-- Made By "SuperSledgeBro"
+SMB SNES "The Lost Levels" / "For Super Players" Expanded Font - Made By "SuperSledgeBro"
 https://mfgg.net/index.php?act=resdb&param=02&c=1&id=36309
 
 PauseMenu.lua - Made By "Marioman2007"
