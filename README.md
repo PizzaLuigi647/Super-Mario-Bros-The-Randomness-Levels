@@ -1,4 +1,4 @@
-Super Mario Bros. X2: The Randomness Levels
+Super Mario Bros.: The Randomness Levels
 
 ![image](https://github.com/PizzaLuigi647/SMBX2-The-Randomness-Levels/assets/84218371/67707865-a7a7-4642-9ed2-5e61fc895a3c)
 
