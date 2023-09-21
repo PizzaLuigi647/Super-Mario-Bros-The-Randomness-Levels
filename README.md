@@ -1,4 +1,5 @@
 Super Mario Bros. X2: The Randomness Levels
+
 ![image](https://github.com/PizzaLuigi647/SMBX2-The-Randomness-Levels/assets/84218371/67707865-a7a7-4642-9ed2-5e61fc895a3c)
 https://cdn.discordapp.com/attachments/1152755292237463566/1154220702044528752/header.png
 
@@ -12,6 +13,13 @@ Credits:
 "Pineappleman9339" (aka "mario"):
 making the suggestions for this world thing so i could make this
 and for making me want to continue this smbx2 world!
+
+Super Mario Bros. SNES Logo - Ripeed By "Storice"/"Mattrizzle"
+https://www.spriters-resource.com/snes/smassmb1/sheet/132613/
+
+SMB SNES "The Lost Levels" / "For Super Players" Expanded Font
+- Made By "SuperSledgeBro"
+https://mfgg.net/index.php?act=resdb&param=02&c=1&id=36309
 
 PauseMenu.lua - Made By "Marioman2007"
 https://www.smbxgame.com/forums/viewtopic.php?t=27998
