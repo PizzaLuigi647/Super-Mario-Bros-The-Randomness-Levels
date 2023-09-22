@@ -46,5 +46,8 @@ https://www.smbxgame.com/forums/viewtopic.php?f=101&t=27892
 anotherwalljump.lua - Made By "Emral"
 https://www.smbxgame.com/forums/viewtopic.php?t=24793
 
+Twirl.lua Rewritten (NSMB Midair Spin) - Made By "MegoZ_"
+https://www.smbxgame.com/forums/viewtopic.php?f=101&t=21495&p=326542#p326542
+
 charnames.lua - Made By AndrewPixel
 https://www.smbxgame.com/forums/viewtopic.php?t=27841
