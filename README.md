@@ -17,6 +17,10 @@ https://www.spriters-resource.com/snes/smassmb1/sheet/132613/
 SMB SNES "The Lost Levels" / "For Super Players" Expanded Font - Made By "SuperSledgeBro"
 https://mfgg.net/index.php?act=resdb&param=02&c=1&id=36309
 
+SMA4 Gloves on Mario & Luigi (SNES colors) - Made By "Voymo"
+https://www.smbxgame.com/forums/viewtopic.php?p=248181&hilit=tanooki+gloves#p248181
+* The Fianl Version Of It: https://www.mediafire.com/file/k6jx5gp16wjk792/smb3mario%26luigiwithgloves+tanookisuitfixed.zip
+
 PauseMenu.lua - Made By "Marioman2007"
 https://www.smbxgame.com/forums/viewtopic.php?t=27998
 
