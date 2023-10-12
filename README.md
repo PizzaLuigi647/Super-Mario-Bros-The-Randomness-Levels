@@ -10,7 +10,7 @@ https://sourceforge.net/projects/smb-the-randomness-levels/
 # Credits:
 
 
-# "Pineappleman9339" (aka "mario"):
+# "Pineappleman9339" (aka "Radical Hedgehog"):
 making the suggestions for this world thing so i could make this
 and for making me want to continue this smbx2 world!
 
