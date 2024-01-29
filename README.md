@@ -3,6 +3,8 @@
 ![image](https://github.com/PizzaLuigi647/SMBX2-The-Randomness-Levels/assets/84218371/67707865-a7a7-4642-9ed2-5e61fc895a3c)
 
 A Super Mario Bros X2 World I Have Been Working on!
+(Created by Andypizza647/PizzaLuigi64 & Boreden/Tize!)
+Discord Username: "pizzaluigi64" / Display Name: "Andypizza647"
 
 Sourceforge Page:
 https://sourceforge.net/projects/smb-the-randomness-levels/
@@ -10,9 +12,13 @@ https://sourceforge.net/projects/smb-the-randomness-levels/
 # Credits:
 
 
-# "Pineappleman9339" (aka "Radical Hedgehog"):
+# Boreden! (My Best Friend!)
+(Discord Username: "boreden_" / Discord Display Name: "Boreden")
+
 making the suggestions for this world thing so i could make this
 and for making me want to continue this smbx2 world!
+(Formerly "Pineappleman9339"(Old Discord Username)
+(a.k.a. "@Radical Hedgehog"(Old Discord Display Name) and other display names that he had.)
 
 # Super Mario Bros. SNES Logo - Ripeed By "Storice"/"Mattrizzle"
 https://www.spriters-resource.com/snes/smassmb1/sheet/132613/
