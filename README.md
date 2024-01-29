@@ -18,7 +18,7 @@ https://sourceforge.net/projects/smb-the-randomness-levels/
 making the suggestions for this world thing so i could make this
 and for making me want to continue this smbx2 world!
 (Formerly "Pineappleman9339"(Old Discord Username)
-(a.k.a. "@Radical Hedgehog"(Old Discord Display Name) and other display names that he had.)
+("@Radical Hedgehog"/"mario"(Old Discord Display Name) and other display names that he had.)
 
 # Super Mario Bros. SNES Logo - Ripeed By "Storice"/"Mattrizzle"
 https://www.spriters-resource.com/snes/smassmb1/sheet/132613/
