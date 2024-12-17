@@ -1,0 +1,17 @@
+{
+    "world": {
+        "update-check-website": "https://github.com/PizzaLuigi647/Super-Mario-Bros-The-Randomness-Levels/releases",
+		"update-error-website": "https://github.com/PizzaLuigi647/Super-Mario-Bros-The-Randomness-Levels/tags",
+		"update-error-message": "Could not find the latest Version sadly!",
+        "version-1.0.0": 2,
+        "version-1.0.0b": 3,
+        "version-1.0.1": 1,
+        "version-1.0.2": 4
+    },
+    "updates": {
+        "version-1.0.0-update": true,
+        "version-1.0.0b-update": true,
+        "version-1.0.1-update": true,
+        "version-1.0.2-update": true
+    }
+}

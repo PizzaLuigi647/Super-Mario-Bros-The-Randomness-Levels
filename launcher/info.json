@@ -1,0 +1,15 @@
+{
+	"progressDisplay": "percent",
+	"maxProgress": 100,
+	
+	"current-version": [1, 0, 2],
+	"update-check-website": "https://github.com/PizzaLuigi647/Super-Mario-Bros-The-Randomness-Levels/blob/main/update-checker.json",
+		"update-error-website": "https://github.com/PizzaLuigi647/Super-Mario-Bros-The-Randomness-Levels/tags",
+		"update-error-message": "Could not find the latest Version sadly!",
+      
+	"allowTwoPlayer": true,
+	"episodeIcon": "icon.png",
+	"starIcon": "stars.png",
+	"megan": "andrio.png",
+	"background": "background.png"
+}

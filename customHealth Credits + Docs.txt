@@ -1,0 +1,59 @@
+-------------
+-- Credits --
+-------------
+Script:
+ - Marioman2007
+
+GFX:
+ - Marioman2007
+ - FieryExplosion
+ - LxXzit
+ - Mageker
+
+----------
+-- Docs --
+----------
+
+Most of the settings are give at the top of customHealth.lua
+Here are some other stuff.
+
+- health.drawHealth()
+Function that draws the bars, override to manually draw the bars.
+
+- health.isFull()
+Returns true if health is full.
+
+- health.add(value)
+Adds the given value to the health counter.
+
+- health.set(value)
+Sets the health counter to the given value.
+
+- health.change(main, max, dontChangeCurrent)
+Changes the main and max health values, if dontChangeCurrent is true, it won't change the current health value.
+
+- health.setMax()
+Maximizes the player's health counter.
+
+---------
+-- FAQ --
+---------
+
+All the code provided as answers are meant to be used in luna.lua file after loading the script
+
+Q: How to make the player always start at full health?
+
+health.settings.startAtMax = true
+health.set(health.settings.maxHealth)
+
+
+Q: How to turn on daredevil mode?
+
+health.dareActive = true
+
+
+Q: How can I run code when the player gets hurt?
+
+function health.onPlayerHurt(eventToken, p)
+    -- do stuff here
+end

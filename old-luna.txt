@@ -1,0 +1,16 @@
+local inventory = require('inventory')
+require('minHUD')
+local aw = require("anotherwalljump")
+aw.registerAllPlayersDefault()
+local charnames = require("charnames")
+dive = require("dive")
+local warpTransition = require("warpTransition")
+local ppp = require('playerphysicspatch')
+_G.extrasounds = require("extrasounds")
+twirl = require("twirl")
+local fakeblocks = require("blocks/ai/fakeblocks")
+local littleDialogue = require("littleDialogue")
+
+-- Register questions
+littleDialogue.registerAnswer("myQuestion",{text = "OK!",addText = "Alright then. Here you go!"})
+littleDialogue.registerAnswer("myQuestion",{text = "No",addText = "Pay with your life!",chosenFunction = function() player:kill() end})

@@ -1,0 +1,8 @@
+gfxwidth=48
+gfxheight=84
+width=48
+height=84
+score=0
+speed=0
+blockid=761
+time=64

@@ -1,0 +1,3 @@
+idleFrames=1
+variations=15
+voice="ralsei"

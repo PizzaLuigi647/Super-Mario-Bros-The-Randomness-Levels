@@ -1,0 +1,7 @@
+height=48
+width=28
+gfxheight=48
+gfxwidth=28
+framestyle=1
+framespeed=8
+frames=2

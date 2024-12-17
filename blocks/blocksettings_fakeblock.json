@@ -1,0 +1,15 @@
+{
+    "style": "groupbox",
+    "title": "Fake Block Settings",
+    "layout": [
+        {
+            "control": "spinbox",
+            "name": "id",
+            "type": "int",
+            "title": "Mimicked ID",
+            "tooltip": "The ID of the block to mimic.",
+            "value-min": 1,
+            "value-max": 2000
+        }
+    ]
+}
