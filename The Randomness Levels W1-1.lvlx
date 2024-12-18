@@ -2,7 +2,7 @@ HEAD
 TL:"W1-1 - The Grassy Fields";SZ:1;CPID:"SMBX2";
 HEAD_END
 SECTION
-SC:0;L:-200768;R:-194080;T:-200600;B:-200000;MZ:24;MF:"music/Morning of Yoster Island.mp3";BG:11;
+SC:0;L:-200768;R:-194080;T:-200600;B:-200000;MZ:24;MF:"music/Morning of Yoster Island.mp3";BG:11;XTRA:"{\n    \"darkness\"\: {\n        \"ambient\"\: \"#161619ff\"\,\n        \"enableDarkness\"\: false\,\n        \"falloff\"\: 1\,\n        \"maxlights\"\: 50\,\n        \"playerlight\"\: {\n            \"brightness\"\: 1\n        }\n    }\,\n    \"effects\"\: {\n        \"screenEffects\"\: 0\n    }\n}\n";
 SC:1;L:-180032;R:-179136;T:-180600;B:-180000;MZ:24;MF:"music/SMAS SMB Bonus.mp3";BG:28;
 SC:2;L:-160000;R:-159168;T:-160600;B:-160000;MZ:24;MF:"music/SMAS SMB Bonus.mp3";BG:0;
 SC:3;L:-140000;R:-139200;T:-140600;B:-140000;MZ:0;MF:"";BG:0;
