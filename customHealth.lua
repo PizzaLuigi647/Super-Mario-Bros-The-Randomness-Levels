@@ -1,5 +1,5 @@
 --[[
-    By Marioman2007
+    By Marioman2007 [v1.2]
 
     - better code
     - single player
@@ -8,10 +8,11 @@
 
 local easing = require("ext/easing")
 local hudoverride = require("hudoverride")
-local npcManager = require("npcManager")
+
+local p = player
 local health = {}
 
-health.VFX = {
+health.images = {
     meter_galaxy = Graphics.loadImageResolved("customHealth/healthGalaxy.png"),
     meter_odyssey = Graphics.loadImageResolved("customHealth/healthOdyssey.png"),
     life  = Graphics.loadImageResolved("customHealth/life.png"),
@@ -23,13 +24,14 @@ health.VFX = {
     }
 }
 
+health.VFX = health.images
 health.GALAXY = "galaxy"
 health.ODYSSEY = "odyssey"
 health.MARIO64 = "mario64"
 
 health.settings   = {
     -- Style to use, can be health.GALAXY or health.ODYSSEY. Visual only
-    style = health.ODYSSEY,
+    style = health.GALAXY,
 
     -- Position of the bar
     pos = vector(740, 60),
@@ -38,7 +40,7 @@ health.settings   = {
     gap = {galaxy = vector(-18, 0), odyssey = vector(0, 0)},
 
     -- Offset of the "Life" icon from the bar
-    lifeTextGap = vector(0, -31),
+    lifeTextGap = vector(0, -32),
 
     -- Bar shake intensity
     shakeOffset = 4,
@@ -83,21 +85,37 @@ health.settings   = {
     healingPowers = table.map{9, 184, 185, 249, 250},
 
     -- Frames for the hurt anim, used if no sheet is provide. One frame per character
-    -- nil for current frame, number for a frame on the sprite sheet
-    playerHurtFrames = {nil, 1, 1, 1},
+    -- false for current frame, number for a frame on the sprite sheet
+    playerHurtFrames = {false, 1, 1, 1},
 
     -- For smwMap, doesn't draw the bar if in this level
     mapFilename = "map.lvlx",
 
     -- The easing effect to use. I prefer: outQuad, outCubic, outSine, outCirc, outQuint
-    -- Check "SMBX2/data/scripts/ext/easing.lua" for more functions
-    -- Visualization: https://easings.net/
     easeEffect = "outCubic",
+
+    -- default powerup of the player, can be a number for vanilla powerup or a string for a powerup made with customPowerups
+    defaultPowerup = 2,
+
+    -- if set to false, the game will not freeze when in a hurtState
+    freezeGame = true,
+
+    -- set to false to disable drawing the health bars
+    drawHealthBar = true,
+
+    -- offset of the 2nd bar when collecting a life-up shroom
+    countOffset = vector(0, -60),
+
+    -- SFX to play when getting hurt
+    hurtSFX = {id = 5, volume = 1},
+
+    -- SFX to play when getting healed
+    healSFX = {id = 6, volume = 1},
 }
 
 health.dareActive = false
 health.curHealth = health.settings.mainHealth
-health.freezeStates = table.map{ -- Forced states in the game will freeze
+health.freezeStates = table.map{ -- Forced states in which the game will freeze
     FORCEDSTATE_POWERUP_BIG,
     FORCEDSTATE_POWERDOWN_SMALL,
     FORCEDSTATE_POWERUP_FIRE,
@@ -110,15 +128,23 @@ health.freezeStates = table.map{ -- Forced states in the game will freeze
     FORCEDSTATE_MEGASHROOM
 }
 
+local settings = health.settings
+local oldItemBox = nil
+
 local anotherPowerDown
 pcall(function() anotherPowerDown = require("anotherPowerDownLibrary") end)
+
+local GP
+pcall(function() GP = require("GroundPound") end)
+
+local cp
+pcall(function() cp = require("customPowerups") end)
 
 local respawnRooms
 pcall(function() respawnRooms = require("respawnRooms") end)
 
-if not respawnRooms then respawnRooms = {onPreReset = function(a) end} end
+respawnRooms = respawnRooms or {respawnSettings = {respawnPowerup = 1}}
 
-local hurtAnimFrame = 0
 local countFrame = 0
 local animTimer = -1
 local barLerp = 0
@@ -132,8 +158,14 @@ local animEnded = false
 local storedPos = vector(0, 0)
 local curPos = vector(0, 0)
 local hurtLerp = 0
-local hurtValue = 0
+local hurtValue = vector(0, 0)
 local hurtOffset = vector(0, 0)
+
+local function SFXPlay(sfx)
+    if sfx and sfx.id then
+        SFX.play(sfx.id, sfx.volume)
+    end
+end
 
 local function stopAnim()
     Misc.unpause()
@@ -143,16 +175,32 @@ local function stopAnim()
 end
 
 local function getInitHP()
-    return (health.settings.startAtMax and health.settings.maxHealth) or health.settings.mainHealth
+    return (settings.startAtMax and settings.maxHealth) or settings.mainHealth
 end
 
-local function drawBar(img, x, y, w, h, frame, p, o)
+local function getPowerup()
+    if cp then
+        return cp.getCurrentName(p)
+    end
+
+    return p.powerup
+end
+
+local function setPowerup(id)
+    if cp then
+        cp.setPowerup(id, p, true)
+    else
+        p.powerup = id
+    end
+end
+
+local function drawBar(img, x, y, w, h, frame, pri, o)
     o = o or 1
-    p = p or 0
-    Graphics.drawImageWP(img, x-w/2+hurtOffset.x, y-h/2+hurtOffset.y, 0, h * frame, w, h, o, p)
+    pri = pri or 0
+    Graphics.drawImageWP(img, x-w/2+hurtOffset.x, y-h/2+hurtOffset.y, 0, h * frame, w, h, o, pri)
 end
 
-local function setHurtFrame(p)
+local function setHurtFrame()
     local extraH = 0
 
     if p:mem(0x12E, FIELD_BOOL) then
@@ -162,53 +210,50 @@ local function setHurtFrame(p)
         extraH = 0
     end
 
-    if health.VFX.hurt[p.character] then
+    if health.images.hurt[p.character] then
         p.frame = -50 * p.direction
 
         Graphics.drawBox{
-            texture      = health.VFX.hurt[p.character],
+            texture      = health.images.hurt[p.character],
             sceneCoords  = true,
             x            = p.x + p.width/2,
             y            = p.y-extraH + (p.height+extraH)/2,
-            width        = health.settings.cellSize * p.direction,
-            height       = health.settings.cellSize,
+            width        = settings.cellSize * p.direction,
+            height       = settings.cellSize,
             sourceX      = 0,
-            sourceY      = health.settings.cellSize * hurtAnimFrame,
-            sourceWidth  = health.settings.cellSize,
-            sourceHeight = health.settings.cellSize,
+            sourceY      = settings.cellSize * (math.floor(p.forcedTimer / settings.hurtSpeed) % settings.hurtFrames),
+            sourceWidth  = settings.cellSize,
+            sourceHeight = settings.cellSize,
             centered     = true,
             priority     = -25,
         }
-    elseif type(health.settings.playerHurtFrames[p.character]) == "number" then
-        p:setFrame(health.settings.playerHurtFrames[p.character])
+    elseif type(settings.playerHurtFrames[p.character]) == "number" then
+        p:setFrame(settings.playerHurtFrames[p.character])
     end
 end
 
 -- draws the bars
 function health.drawHealth()
-    if isOverworld or Level.filename() == health.mapFilename then return end
-
-    local settings = health.settings
-    local metImg   = health.VFX["meter_"..settings.style]
+    local metImg   = health.images["meter_"..settings.style]
     local width    = metImg.width
     local height   = metImg.height/(settings.maxHealth + 3)
     local pos      = settings.pos
-    local lifeW    = health.VFX.life.width
-    local lifeH    = health.VFX.life.height
+    local lifeW    = health.images.life.width
+    local lifeH    = health.images.life.height
     local gap      = settings.gap[settings.style]
     local mFrame   = (health.dareActive and settings.maxHealth + 2) or math.min(health.curHealth, settings.mainHealth)
-    local useFrame = (player.deathTimer == 0 and mFrame) or 0
+    local useFrame = (p.deathTimer == 0 and mFrame) or 0
 
     -- "Life" icon
     Graphics.drawImageWP(
-        health.VFX.life,
+        health.images.life,
         pos.x - lifeW/2 + lifeOffset+gap.x + hurtOffset.x + settings.lifeTextGap.x,
         pos.y - lifeH/2 + settings.lifeTextGap.y+hurtOffset.y,
-        health.settings.priority+0.2
+        settings.priority+0.2
     )
 
     -- 0 to main health/daredevil health
-    drawBar(metImg, pos.x, pos.y, width, height, useFrame, health.settings.priority, 1)
+    drawBar(metImg, pos.x, pos.y, width, height, useFrame, settings.priority, 1)
 
     -- main+1 to max health
     if (counting or isLerping) or (health.curHealth > settings.mainHealth or offsetLerp > 0) then
@@ -218,65 +263,50 @@ function health.drawHealth()
             frame = settings.mainHealth + 1
         end
 
-        drawBar(metImg, curPos.x, curPos.y+offset, width, height, frame, health.settings.priority+0.1, offsetLerp)
+        drawBar(metImg, curPos.x, curPos.y+offset, width, height, frame, settings.priority+0.1, offsetLerp)
     end
 end
 
 -- returns true if health is full
 function health.isFull()
-    return health.curHealth == health.settings.mainHealth or health.curHealth == health.settings.maxHealth
+    return health.curHealth == settings.mainHealth or health.curHealth == settings.maxHealth
 end
 
 -- adds the given amount to current health
 function health.add(x)
-    local extraHp = health.settings.mainHealth - health.curHealth
+    local extraHp = settings.mainHealth - health.curHealth
 
-    if health.curHealth <= health.settings.mainHealth and x > extraHp then
+    if health.curHealth <= settings.mainHealth and x > extraHp then
         x = extraHp
     end
 
-    health.curHealth = math.clamp(health.curHealth + x, 0, health.settings.maxHealth)
+    health.curHealth = math.clamp(health.curHealth + x, 0, settings.maxHealth)
 end
 
 -- sets health to the given amount
 function health.set(x)
-    if x > health.settings.mainHealth then
-        curPos.x = health.settings.pos.x + health.settings.gap[health.settings.style].x
-        curPos.y = health.settings.pos.y + health.settings.gap[health.settings.style].y
+    if x > settings.mainHealth then
+        curPos.x = settings.pos.x + settings.gap[settings.style].x
+        curPos.y = settings.pos.y + settings.gap[settings.style].y
         offsetLerp = 1
         lifeLerp = 1
     end
 
-    health.curHealth = math.clamp(x, 0, health.settings.maxHealth)
-end
-
--- changes the main health and max health
-function health.change(main, max, dontChangeCurrent)
-    local settings = health.settings
-    local oldMain, oldMax = settings.mainHealth, settings.maxHealth
-
-    max = max or settings.maxHealth
-    settings.mainHealth = main
-    settings.maxHealth = max
-
-    if not dontChangeCurrent then
-        if settings.startAtMax then
-            health.set(math.max(1, health.curHealth + (max - oldMax)))
-        else
-            health.set(math.max(1, health.curHealth + (main - oldMain)))
-        end
-    end
+    health.curHealth = math.clamp(x, 0, settings.maxHealth)
 end
 
 -- maximizes the health with an animation
 function health.setMax()
+    local x = p.x + p.width/2 - camera.x + settings.countOffset.x
+    local y = p.y + p.height/2 - camera.y + settings.countOffset.y
+
     Misc.pause()
     barLerp = 0
     animEnded = false
     countFrame = 0
     animTimer = 0
-    storedPos = vector(player.x - camera.x, player.y - camera.y)
-    curPos = vector(player.x - camera.x, player.y - camera.y)
+    storedPos = vector(x, y)
+    curPos = vector(x, y)
     counting = true
     offsetLerp = 0
     lifeLerp = 0
@@ -284,72 +314,71 @@ end
 
 -- register events
 function health.onInitAPI()
+    registerEvent(health, "onStart")
     registerEvent(health, "onTick")
     registerEvent(health, "onDraw")
-    registerEvent(health, "onPostNPCKill")
+    registerEvent(health, "onNPCCollect")
     registerEvent(health, "onPlayerHarm")
     registerEvent(health, "onPostPlayerKill")
 
-    registerEvent(health, "onReset")
     registerCustomEvent(health, "onPlayerHurt")
+    registerCustomEvent(health, "onPostPlayerHurt")
 end
 
 -- compatibility with respawnRooms.lua and rooms.lua
-function respawnRooms.onPreReset(fromRespawn)
+function respawnRooms.onPostReset(fromRespawn)
+    if not fromRespawn then return end
+
+    local power = respawnRooms.respawnSettings.respawnPowerup
+
     health.set(getInitHP())
+    
+    if settings.defaultPowerup ~= power and getPowerup() == power then
+        setPowerup(settings.defaultPowerup)
+    end
 end
 
-function health.onReset(fromRespawn)
+-- set the powerup on the first frame
+function health.onStart()
     health.set(getInitHP())
+
+    if settings.defaultPowerup ~= 1 and getPowerup() == 1 then
+        setPowerup(settings.defaultPowerup)
+    end
 end
 
 -- some stuff
 function health.onTick()
-    local settings = health.settings
-    local inFrzState = player.forcedState == health.settings.forcedStateId or health.freezeStates[player.forcedState]
+    local inFrzState = (p.forcedState == settings.forcedStateId or health.freezeStates[p.forcedState]) and settings.freezeGame
 
     Defines.levelFreeze = (inFrzState or mem(0x00B2C62E,FIELD_WORD,  0))
     health.curHealth = math.max(health.curHealth, 0)
 
-    if health.curHealth == 0 and player.deathTimer == 0 then
-        player:kill()
+    if health.curHealth == 0 and p.deathTimer == 0 then
+        p:kill()
     end
 
-    if player.forcedState ~= FORCEDSTATE_POWERUP_BIG and player.powerup == 1 then
-        player.powerup = 2
+    if health.dareActive and not settings.allowPowerups and getPowerup() ~= settings.defaultPowerup then
+        setPowerup(settings.defaultPowerup)
     end
 
-    if player.forcedState == settings.forcedStateId then
-        local frameCount = (health.VFX.hurt[player.character] and settings.hurtFrames) or 2
+    if p.forcedState == settings.forcedStateId then
+        p.forcedTimer = p.forcedTimer + 1
 
-        player.forcedTimer = player.forcedTimer + 1
-        hurtAnimFrame = math.floor(player.forcedTimer / settings.hurtSpeed) % frameCount
-
-        if player.forcedTimer >= settings.hurtDuration then
-            player.forcedState = 0
-            player:mem(0x140, FIELD_WORD, 150)
-            player.forcedTimer = 0
-            hurtAnimFrame = 0
-        end
-    end
-
-    if health.dareActive then
-        if not settings.allowPowerups then
-            player.powerup = 2
-        end
-
-        if player.deathTimer == 0 then
-            health.curHealth = 1
+        if p.forcedTimer >= settings.hurtDuration then
+            p.forcedState = 0
+            p:mem(0x140, FIELD_WORD, 150)
+            p.forcedTimer = 0
         end
     end
 end
 
 -- some calculations and rendering
 function health.onDraw()
-    local settings = health.settings
     local diff = settings.maxHealth - settings.mainHealth + 2
-    local barHeight = health.VFX["meter_"..settings.style].height/(settings.maxHealth + 3)
+    local barHeight = health.images["meter_"..settings.style].height/(settings.maxHealth + 3)
     local gap = settings.gap[settings.style]
+    local easeFunc = easing[settings.easeEffect]
 
     if animTimer >= 0 then
         animTimer = animTimer + 1
@@ -367,14 +396,13 @@ function health.onDraw()
         lifeLerp = math.max(lifeLerp - 0.05, 0)
     end
 
-    if hurtValue ~= 0 then
+    if hurtValue.x ~= 0 and hurtValue.y ~= 0 then
         hurtLerp = math.min(hurtLerp + 0.04, 1)
-        hurtOffset.x = math.floor(easing.inOutBack(hurtLerp, hurtValue, -hurtValue, 1, -hurtValue) + 0.5)
-        hurtOffset.y = math.floor(easing.inOutBack(hurtLerp, -hurtValue, hurtValue, 1, hurtValue) + 0.5)
+        hurtOffset = easing.inOutBack(hurtLerp, hurtValue, -hurtValue, 1, -hurtValue)
 
         if hurtLerp == 1 then
             hurtLerp = 0
-            hurtValue = 0
+            hurtValue = vector(0, 0)
             hurtOffset = vector(0, 0)
         end
     end
@@ -389,54 +417,75 @@ function health.onDraw()
 
     if isLerping then
         barLerp = math.min(barLerp + 0.025, 1)
-
-        curPos.x = math.floor(easing[settings.easeEffect](barLerp, storedPos.x, settings.pos.x + gap.x - storedPos.x, 1) + 0.5)
-        curPos.y = math.floor(easing[settings.easeEffect](barLerp, storedPos.y, settings.pos.y + gap.y - storedPos.y, 1) + 0.5)
+        curPos = easeFunc(barLerp, storedPos, settings.pos + gap - storedPos, 1)
 
         if barLerp == 1 then
             stopAnim()
-            health.set(health.settings.maxHealth)
+            health.set(settings.maxHealth)
             lifeLerp = 0
         end
     end
 
-    if not health.dareActive and player.deathTimer == 0 and health.curHealth > 0
-    and player.forcedState == settings.forcedStateId then
-        setHurtFrame(player)
+    p:mem(0x16, FIELD_WORD, 2)
+    offset = easeFunc(offsetLerp, barHeight, -barHeight, 1)
+    lifeOffset = easeFunc(lifeLerp, -gap.x, gap.x, 1)
+
+    if not health.dareActive and p.deathTimer == 0 and health.curHealth > 0
+    and p.forcedState == settings.forcedStateId and (not GP or GP.getData(p.idx).state == GP.STATE_NONE) then
+        setHurtFrame()
     end
 
-    -- this needs to stay here until onNPCCollect gets into basegame
-    if settings.healingPowers[player.reservePowerup] then
-        player.reservePowerup = 0
+    if Graphics.getHUDType(p.character) == Graphics.HUD_HEARTS then
+        if oldItemBox == nil then
+            oldItemBox = hudoverride.visible.itembox
+            hudoverride.visible.itembox = false
+        end
+    else
+        if oldItemBox ~= nil then
+            hudoverride.visible.itembox = oldItemBox
+            oldItemBox = nil
+        end
     end
 
-    player:mem(0x16, FIELD_WORD, 2)
-    hudoverride.visible.itembox = (Graphics.getHUDType(player.character) ~= Graphics.HUD_HEARTS)
-
-    offset = math.floor(easing[settings.easeEffect](offsetLerp, barHeight, -barHeight, 1) + 0.5)
-    lifeOffset = math.floor(easing[settings.easeEffect](lifeLerp, -gap.x, gap.x, 1) + 0.5)
-    health.drawHealth()
+    if not isOverworld
+    and Level.filename() ~= settings.mapFilename
+    and Graphics.isHudActivated()
+    and settings.drawHealthBar
+    then
+        health.drawHealth()
+    end
 end
 
 -- add health if collecting a healing powerup
-function health.onPostNPCKill(v, r)
-    local p = npcManager.collected(v, r)
-
-    if not p or r ~= HARM_TYPE_VANISH or health.dareActive then
+function health.onNPCCollect(e, v, p)
+    if e.cancelled or health.dareActive or not settings.healingPowers[v.id]
+    or health.isFull() or v.data._customHealth_preventOverflow or (v.id == 249 and p.powerup > 2)
+    then
         return
     end
 
-    if health.settings.healingPowers[v.id] and not health.isFull() then
-        health.add(1)
-    end
+    local oldReserve = p.reservePowerup
+    local oldMuted = Audio.sounds[12].muted
+
+    Audio.sounds[12].muted = true
+    v.data._customHealth_preventOverflow = true
+    v:collect(p)
+    SFXPlay(settings.healSFX)
+
+    p.reservePowerup = oldReserve
+    Audio.sounds[12].muted = oldMuted
+
+    health.add(1)
+    e.cancelled = true
 end
 
 -- main stuff
 function health.onPlayerHarm(e, p)
     if e.cancelled then return end
-    if p.powerup > 2 and anotherPowerDown ~= nil then return end -- let anotherPowerDown do its thing
+    if p.powerup > 2 and anotherPowerDown then return end
 
     local eventToken = {cancelled = false}
+
     health.onPlayerHurt(eventToken, p)
 
     if eventToken.cancelled then
@@ -446,28 +495,27 @@ function health.onPlayerHarm(e, p)
 
     if p.deathTimer == 0 and (p.mount ~= MOUNT_BOOT and p.mount ~= MOUNT_YOSHI) and not p.hasStarman and health.curHealth > 0 then
         if not health.dareActive then
-            if p.powerup > 2 then
-                p.powerup = 2
+            if getPowerup() ~= settings.defaultPowerup then
+                setPowerup(settings.defaultPowerup)
             else
                 health.add(-1)
             end
 
-            SFX.play(5)
-            p.forcedState = health.settings.forcedStateId
+            SFXPlay(settings.hurtSFX)
+            p.forcedState = settings.forcedStateId
         else
             p:kill()
             health.curHealth = 0
         end
 
-        if hurtValue == 0 then
-            hurtValue = RNG.irandomEntry{-health.settings.shakeOffset, health.settings.shakeOffset}
+        if hurtValue.x == 0 and hurtValue.y == 0 then
+            hurtValue.x = RNG.irandomEntry{-settings.shakeOffset, settings.shakeOffset}
+            hurtValue.y = RNG.irandomEntry{-settings.shakeOffset, settings.shakeOffset}
         end
 
-        if Defines.earthquake < health.settings.quakePower then -- don't cancel an on-going quake
-            Defines.earthquake = health.settings.quakePower
-        end
-    
+        Defines.earthquake = math.max(settings.quakePower, Defines.earthquake)
         e.cancelled = true
+        health.onPostPlayerHurt(p)
     end
 end
 

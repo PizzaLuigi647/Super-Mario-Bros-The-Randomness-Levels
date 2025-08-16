@@ -1,7 +1,3 @@
--- by Marioman2007
--- Life-Up Mushroom
--- Maximizes the the player's health meter
-
 local npcManager = require("npcManager")
 local health = require("customHealth")
 
@@ -25,7 +21,7 @@ local lifeUpSettings = {
 	playerblock = false,
 	playerblocktop = false, --Also handles other NPCs walking atop this NPC.
 
-	nohurt=true,
+	nohurt = true,
 	nogravity = false,
 	noblockcollision = false,
 	nofireball = true,
@@ -34,7 +30,7 @@ local lifeUpSettings = {
 	nowaterphysics = false,
 	notcointransformable = true,
 
-	jumphurt = false, --If true, spiny-like
+	jumphurt = true, --If true, spiny-like
 	spinjumpsafe = false, --If true, prevents player hurt when spinjumping
 	harmlessgrab = true, --Held NPC hurts other NPCs if false
 	harmlessthrown = false, --Thrown NPC hurts other NPCs if false
@@ -42,6 +38,7 @@ local lifeUpSettings = {
 	grabside=false,
 	grabtop=false,
 	isinteractable = true,
+	powerup = true,
 	score = 6,
 
 	soundEffect = Misc.resolveSoundFile("SFX/smg_life_mushroom"), -- The SFX that will play when the player collects the power-up.
@@ -63,28 +60,26 @@ npcManager.registerHarmTypes(npcID,
 	}
 );
 
-registerEvent(lifeUp, "onPostNPCKill")
+function lifeUp.onInitAPI()
+	registerEvent(lifeUp, "onPostNPCCollect")
+end
 
-function lifeUp.onPostNPCKill(v, r)
-	local p = npcManager.collected(v, r)
-
-    if v.id ~= npcID or not p or r ~= HARM_TYPE_VANISH or health.dareActive then return end
+function lifeUp.onPostNPCCollect(v, p)
+    if v.id ~= npcID then return end
 
 	local config = NPC.config[v.id]
 
-	if health.curHealth < health.settings.maxHealth then
-		SFX.play(config.soundEffect, config.soundEffectVolume)
-	elseif health.curHealth == health.settings.maxHealth then
-		SFX.play(config.soundEffectAlt, config.soundEffectVolumeAlt)
-	end
+	Misc.givePoints(config.score, v, true)
+
+	if health.dareActive then return end
 
 	if health.curHealth <= health.settings.mainHealth then
+		SFX.play(config.soundEffect, config.soundEffectVolume)
 		health.setMax()
-	elseif not health.isFull() then
+	else
+		SFX.play(config.soundEffectAlt, config.soundEffectVolumeAlt)
 		health.set(health.settings.maxHealth)
 	end
-
-	Misc.givePoints(config.score, v, true)
 end
 
 return lifeUp

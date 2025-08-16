@@ -1,12 +1,12 @@
 --[[
 
-    littleDialogue.lua (v1.1)
+    littleDialogue.lua (v1.2)
     Written by MrDoubleA
 
     Documentation: https://docs.google.com/document/d/1oJUQT6FvgtX7UA26r-JAWcG41Ns6lpe9iIP4qPEm6zw/edit?usp=sharing
 
     Yoshi's Island font ripped by Nemica (https://www.spriters-resource.com/snes/yoshiisland/sheet/19542/)
-    Font for Superstar Saga-styled box by rixithechao (https://www.supermariobrosx.org/forums/viewtopic.php?f=31&t=26204#p376929)
+    Font for Superstar Saga-styled box by Rixitic (https://www.smbxgame.com/forums/viewtopic.php?f=31&t=26204#p376929)
 
 ]]
 
@@ -20,32 +20,16 @@ local handycam = require("handycam")
 local littleDialogue = {}
 
 
-local smallScreen
-pcall(function() smallScreen = require("smallScreen") end)
-
-
 function littleDialogue.onInitAPI()
     registerEvent(littleDialogue,"onTick")
     registerEvent(littleDialogue,"onDraw")
 
-    registerEvent(littleDialogue,"onMessageBox")
+    registerEvent(littleDialogue,"onMessageBox","onMessageBox",false)
 end
 
 
 local function getBoundaries()
-    local b = camera.bounds
-
-    if smallScreen ~= nil and smallScreen.croppingEnabled then
-        local widthDifference  = (camera.width  - smallScreen.width ) * 0.5
-        local heightDifference = (camera.height - smallScreen.height) * 0.5
-
-        b.left   = b.left   + widthDifference
-        b.right  = b.right  - widthDifference
-        b.top    = b.top    + heightDifference
-        b.bottom = b.bottom - heightDifference
-    end
-
-    return b
+    return camera.bounds
 end
 
 local function getTextPosFromValue(pos) -- takes a number, layout or formatted text and returns the numbers of characters from it
@@ -111,6 +95,12 @@ local STATE = {
     REMOVE = -1,
 }
 
+local PLACEMENT_STYLE = {
+    AUTO  = 0,
+    ABOVE = 1,
+    BELOW = 2,
+}
+
 
 local customTags = {}
 local selfClosingTags = {}
@@ -121,6 +111,10 @@ littleDialogue.customTags = customTags
 littleDialogue.selfClosingTags = selfClosingTags
 
 littleDialogue.textEventFuncs = textEventFuncs
+
+
+littleDialogue.BOX_STATE = STATE
+littleDialogue.PLACEMENT_STYLE = PLACEMENT_STYLE
 
 
 -- Custom tags
@@ -191,7 +185,7 @@ do
 
     local extraSettingsList = {
         "font","speakerNameFont","boxImage","continueArrowImage","scrollArrowImage","selectorImage","speakerNameBoxImage","lineMarkerImage",
-        "openSound","closeSound","scrollSound","typewriterSound","moveSelectionSound","chooseAnswerSound",
+        "openSound","closeSound","scrollSound","typewriterSounds","moveSelectionSound","chooseAnswerSound",
         "mainTextShader","speakerNameTextShader",
     }
 
@@ -267,8 +261,41 @@ do
         end
 
         self.maxWidth = self.settings.textMaxWidth
-        self.typewriterFinished = (not self.settings.typewriterEnabled)
         self.priority = self.settings.priority
+        
+        self.typewriterFinished = (not self.settings.typewriterEnabled)
+        self.typewriterDelayNormal = self.settings.typewriterDelayNormal
+        self.typewriterDelayLong = self.settings.typewriterDelayLong
+        self.typewriterSoundDelay = self.settings.typewriterSoundDelay
+        self.typewriterUnskippable = self.settings.typewriterUnskippable
+    end
+
+
+    local function getTypewriterSounds(basePath)
+        local singlePath = Misc.resolveSoundFile(basePath.. "typewriter")
+
+        if singlePath ~= nil then
+            return {SFX.open(singlePath)}
+        end
+
+        local soundIndex = 1
+        local soundList = {}
+
+        while (true) do
+            local soundPath = Misc.resolveSoundFile(basePath.. "typewriter-".. soundIndex)
+            if soundPath == nil then
+                break
+            end
+
+            soundList[soundIndex] = SFX.open(soundPath)
+            soundIndex = soundIndex + 1
+        end
+
+        if #soundList > 0 then
+            return soundList
+        end
+        
+        return nil
     end
 
     function littleDialogue.registerStyle(name,settings)
@@ -291,7 +318,8 @@ do
         loadSound(settings,name,"moveSelectionSound","scroll")
         loadSound(settings,name,"chooseAnswerSound","choose")
 
-        settings.typewriterSound = SFX.open(Misc.resolveSoundFile("littleDialogue/".. name.. "/typewriter") or Misc.resolveSoundFile("littleDialogue/typewriter"))
+        --settings.typewriterSound = SFX.open(Misc.resolveSoundFile("littleDialogue/".. name.. "/typewriter") or Misc.resolveSoundFile("littleDialogue/typewriter"))
+        settings.typewriterSounds = getTypewriterSounds("littleDialogue/".. name.. "/") or getTypewriterSounds("littleDialogue/") or {}
 
         settings.font = settings.font or textplus.loadFont(findFont(name,"font.ini"))
 
@@ -329,14 +357,69 @@ do
     table.insert(selfClosingTags,"boxStyle")
 
 
-    local keyCodeNames = {
+    littleDialogue.keyCodeNames = {
         [VK_MENU] = "key_alt",[VK_SHIFT] = "key_shift",[VK_CONTROL] = "key_control",[VK_TAB] = "key_tab",
         [VK_BACK] = "key_backspace",[VK_PRIOR] = "key_pageUp",[VK_NEXT] = "key_pageDown",[VK_HOME] = "key_home",
         [VK_END] = "key_end",[VK_DELETE] = "key_delete",[VK_SPACE] = "key_space",[VK_RETURN] = "key_enter",
+        [VK_ESCAPE] = "key_esc",
         [VK_UP] = "button_up",[VK_RIGHT] = "button_right",[VK_DOWN] = "button_down",[VK_LEFT] = "button_left",
     }
 
-    local function getKeyImageFilename(imageName)
+    local validKeyNameMap = table.map{"jump","run","altjump","altrun","pause","dropitem","left","right","up","down"}
+    local directionKeyNameMap = table.map{"left","right","up","down"}
+
+    littleDialogue.controllerData = {}
+
+    littleDialogue.controllerData["Nintendo Switch Pro Controller"] = {
+        folderName = "switchButtons",buttonNames = {
+            [0] = "A",
+            [1] = "B",
+            [2] = "Y",
+            [3] = "X",
+            [4] = "L",
+            [5] = "R",
+            [6] = "select",
+            [7] = "start",
+            [10] = "ZL",
+            [11] = "ZR",
+            [12] = "home",
+        },
+    }
+
+    littleDialogue.controllerData["Controller (Xbox One For Windows)"] = {
+        folderName = "xboxButtons",buttonNames = {
+            [0] = "A",
+            [1] = "B",
+            [2] = "Y",
+            [3] = "X",
+            [4] = "LB",
+            [5] = "RB",
+            [6] = "view",
+            [7] = "menu",
+            [10] = "LT",
+            [11] = "RT",
+            [12] = "home",
+        },
+    }
+
+    littleDialogue.controllerData["Xbox 360 Controller"] = {
+        folderName = "xboxButtons",buttonNames = {
+            [0] = "A",
+            [1] = "B",
+            [2] = "Y",
+            [3] = "X",
+            [4] = "LB",
+            [5] = "RB",
+            [6] = "back",
+            [7] = "start",
+            [10] = "LT",
+            [11] = "RT",
+            [12] = "home",
+        },
+    }
+
+
+    local function getKeyImageFilePath(imageName)
         if currentlyUpdatingBox ~= nil then
             -- Check for keys in the style's folder
             local stylePath = "littleDialogue/".. currentlyUpdatingBox.styleName.. "/keys/".. imageName.. ".png"
@@ -356,31 +439,58 @@ do
         return nil
     end
 
-    function customTags.playerKey(fmt,out,args)
-        local keyName = (args[1] or ""):lower()
+    local function getKeyImageFilename(keyName)
+        if Player.count() > 1 then
+            return "button_".. keyName
+        end
 
-        local imageName
+        -- Is this a specially supported controller?
+        local controllerName = Misc.GetSelectedControllerName(1)
+        local controllerData = littleDialogue.controllerData[controllerName]
 
-        if Player.count() > 1 or Misc.GetSelectedControllerName(1) ~= "Keyboard" then
-            imageName = "button_".. keyName
-        else
-            local keyCode = inputConfig1[keyName]
-
-            if keyCode == nil then
-                return fmt
+        if controllerData ~= nil then
+            -- Even just getting the button ID of a directional key will cause an error.
+            -- The generic arrow icons are always used instead.
+            if directionKeyNameMap[keyName] then
+                return "button_".. keyName
             end
 
-            if keyCode >= 65 and keyCode <= 90 then
-                imageName = string.char(keyCode)
-            elseif keyCodeNames[keyCode] then
-                imageName = keyCodeNames[keyCode]
-            else
-                imageName = "button_".. keyName
+            -- Is this key assigned to a button that has an icon?
+            local buttonID = inputConfig1[keyName]
+            local buttonName = controllerData.buttonNames[buttonID]
+
+            if buttonName ~= nil then
+                return controllerData.folderName.. "/".. buttonName
             end
         end
 
+        -- Generic icons are used for most controllers
+        if controllerName ~= "Keyboard" then
+            return "button_".. keyName
+        end
 
-        local imagePath = getKeyImageFilename(imageName)
+        -- Keyboard input
+        local keyCode = inputConfig1[keyName]
+
+        if keyCode >= 65 and keyCode <= 90 then -- letter
+            return string.char(keyCode)
+        end
+
+        if littleDialogue.keyCodeNames[keyCode] then -- certain keys like ESC, SHIFT, etc.
+            return littleDialogue.keyCodeNames[keyCode]
+        end
+
+        return "button_".. keyName
+    end
+
+    function customTags.playerKey(fmt,out,args)
+        local keyName = (args[1] or ""):lower()
+        if not validKeyNameMap[keyName] then
+            return fmt
+        end
+
+        local imageName = getKeyImageFilename(keyName)
+        local imagePath = getKeyImageFilePath(imageName)
 
         if imagePath == nil then
             return fmt
@@ -469,8 +579,9 @@ do
 
         if name == nil or name == "" then
             box._newPortraitData = nil
-
             box._newSpeakerName = ""
+
+            box.typewriterSoundDelay = box.settings.typewriterSoundDelay
             setVoice(box,nil)
         else
             local portraitData = littleDialogue.getPortraitData(name)
@@ -479,6 +590,8 @@ do
             box.portraitVariation = (args[2] or 1) - 1
 
             box._newSpeakerName = portraitData.speakerName or box._newSpeakerName
+
+            box.typewriterSoundDelay = portraitData.voiceDelay or box.settings.typewriterSoundDelay
             setVoice(box,portraitData.voice)
         end
     end
@@ -499,6 +612,24 @@ do
 
         return fmt
     end]]
+
+    -- twitch tag
+    function customTags.twitch(fmt,out,args)
+        fmt = table.clone(fmt)
+
+        fmt.twitch = args[1] or 0.01
+
+        fmt.posFilter = function(x,y, fmt,img, width,height)
+            if RNG.random() < fmt.twitch then
+                x = x + RNG.randomInt(0,1)*2 - 1
+                y = y + RNG.randomInt(0,1)*2 - 1
+            end
+            
+            return x,y
+        end
+
+        return fmt
+    end
 
     -- characterName tag
     littleDialogue.characterNames = {
@@ -585,6 +716,64 @@ do
     table.insert(selfClosingTags,"delay")
 
 
+    -- Typewriter speed
+    function customTags.speed(fmt,out,args)
+        if currentlyUpdatingBox == nil or currentlyUpdatingPage == nil then
+            Misc.warn("Invalid use of speed tag.")
+            return fmt
+        end
+
+        currentlyUpdatingBox:addTextEvent(currentlyUpdatingPage,out,"speed",args)
+
+        return fmt
+    end
+
+    function textEventFuncs.speed(box,page,pos,args)
+        local speed = args[1] or 1
+
+        box.typewriterDelayNormal = box.settings.typewriterDelayNormal/speed
+        box.typewriterDelayLong = box.settings.typewriterDelayLong/speed
+    end
+
+    table.insert(selfClosingTags,"speed")
+
+    -- Unskippable typewriter effect
+    function customTags.unskippable(fmt,out,args)
+        if currentlyUpdatingBox == nil or currentlyUpdatingPage == nil then
+            Misc.warn("Invalid use of unskippable tag.")
+            return fmt
+        end
+
+        currentlyUpdatingBox:addTextEvent(currentlyUpdatingPage,out,"unskippable",args)
+
+        return fmt
+    end
+
+    function textEventFuncs.unskippable(box,page,pos,args)
+        if args[1] == nil then
+            box.typewriterUnskippable = true
+        else
+            box.typewriterUnskippable = args[1]
+        end
+    end
+
+    table.insert(selfClosingTags,"unskippable")
+
+    -- Forced width tag
+    function customTags.forceWidth(fmt,out,args)
+        if currentlyUpdatingBox == nil or currentlyUpdatingPage == nil then
+            Misc.warn("Invalid use of forceWidth tag.")
+            return fmt
+        end
+
+        currentlyUpdatingBox._newForcedWidth = args[1]
+
+        return fmt
+    end
+
+    table.insert(selfClosingTags,"forceWidth")
+
+
     -- Voice
     function customTags.voice(fmt,out,args)
         if currentlyUpdatingBox == nil or currentlyUpdatingPage == nil then
@@ -598,10 +787,30 @@ do
     end
 
     function textEventFuncs.voice(box,page,pos,args)
+        box.typewriterSoundDelay = args.delay or args[2] or box.settings.typewriterSoundDelay
         setVoice(box,args[1])
     end
 
     table.insert(selfClosingTags,"voice")
+
+
+    -- Routine signal
+    function customTags.signal(fmt,out,args)
+        if currentlyUpdatingBox == nil or currentlyUpdatingPage == nil then
+            Misc.warn("Invalid use of signal tag.")
+            return fmt
+        end
+
+        currentlyUpdatingBox:addTextEvent(currentlyUpdatingPage,out,"signal",args)
+
+        return fmt
+    end
+
+    function textEventFuncs.signal(box,page,pos,args)
+        Routine.signal(args[1])
+    end
+
+    table.insert(selfClosingTags,"signal")
 
 
     -- setPos
@@ -675,10 +884,6 @@ do
 end
 
 
-
-littleDialogue.BOX_STATE = STATE
-
-
 function littleDialogue.create(args)
     local box = setmetatable({},boxMT)
 
@@ -689,6 +894,8 @@ function littleDialogue.create(args)
     box.uncontrollable = args.uncontrollable or false
     box.uncloseableByPlayer = args.uncloseableByPlayer or false
     box.silent = args.silent or false
+
+    box.timeScale = args.timeScale or 1
 
     box.pauses = args.pauses
     if box.pauses == nil then
@@ -743,6 +950,8 @@ function littleDialogue.create(args)
     box.speakerName = args.speakerName or ""
     box.speakerNameLayout = nil
 
+    box.forcedWidth = nil
+
     box.voiceSound = nil
 
     box.mainOffsetY = 0
@@ -760,6 +969,9 @@ function littleDialogue.create(args)
 
 
     box:updateLayouts()
+
+
+    box.placementStyle = box:findPlacementStyle()
     
 
     if box.pauses then
@@ -778,6 +990,11 @@ end
 
 
 
+function boxInstanceFunctions:getTimeScale()
+    return self.timeScale
+end
+
+
 function boxInstanceFunctions:addQuestion(pageIndex,answer)
     local maxWidth = self.maxWidth
     if self.settings.selectorImage ~= nil and self.settings.selectorImageEnabled then
@@ -787,7 +1004,7 @@ function boxInstanceFunctions:addQuestion(pageIndex,answer)
         maxWidth = maxWidth - self.portraitData.width
     end
 
-    local layout = textplus.layout(answer.text,maxWidth,{font = self.settings.font,color = self.settings.textColor,xscale = self.settings.textXScale,yscale = self.settings.textYScale},customTags,selfClosingTags)
+    local layout = textplus.layout(answer.text,maxWidth,{font = self.settings.font,xscale = self.settings.textXScale,yscale = self.settings.textYScale},customTags,selfClosingTags)
 
 
     local page = self.pageData[pageIndex]
@@ -910,6 +1127,9 @@ function boxInstanceFunctions:updateLayouts()
 
     -- _newStyle is for the <boxStyle> tag. If that tag is parsed, it'll set _newStyle and then things can be re-done.
     self._newStyle = self.styleName
+    self._newForcedWidth = self.forcedWidth
+
+    self.maxWidth = self.forcedWidth or self.maxWidth
 
 
     local totalBorderSize = self.settings.borderSize*2
@@ -936,7 +1156,8 @@ function boxInstanceFunctions:updateLayouts()
 
         page.formattedText = textplus.parse(page.text,mainTextFmt,customTags,selfClosingTags)
 
-        if self._newStyle ~= self.styleName then -- change style
+        if self._newStyle ~= self.styleName or self._newForcedWidth ~= self.forcedWidth then -- change style
+            self.forcedWidth = self._newForcedWidth
             self:setStyle(self._newStyle)
             self:updateLayouts()
             return
@@ -1103,6 +1324,10 @@ function boxInstanceFunctions:updateLayouts()
         self.mainWidth = math.max(self.mainWidth,self.settings.textMaxWidth)
     end
 
+    if self.forcedWidth ~= nil then
+        self.mainWidth = math.max(self.mainWidth,self.forcedWidth)
+    end
+
     self.mainHeight = math.max(self.mainHeight,self.settings.minBoxMainHeight)
 
 
@@ -1220,15 +1445,17 @@ function boxInstanceFunctions:progress(isFromPlayer)
 end
 
 function boxInstanceFunctions:update()
+    local timeScale = self:getTimeScale()
+
     if self.state == STATE.STAY then
         local page = self.pageData[self.page]
 
         local characterCount = #page.characterList
 
         if not self.typewriterFinished then
-            self.typewriterDelay = self.typewriterDelay - 1
+            self.typewriterDelay = self.typewriterDelay - timeScale
             
-            if self.typewriterDelay <= 0 then
+            while (self.typewriterDelay <= 0 and not self.typewriterFinished) do
                 self.typewriterLimit = self.typewriterLimit + 1
 
                 if self.typewriterLimit < characterCount then
@@ -1238,14 +1465,14 @@ function boxInstanceFunctions:update()
                         local nextCharacter = page.characterList[self.typewriterLimit + 1]
 
                         if self.settings.typewriterClosingCharacters[nextCharacter] or self.settings.typewriterDelayCharacters[nextCharacter] then
-                            self.typewriterDelay = self.settings.typewriterDelayNormal
+                            self.typewriterDelay = self.typewriterDelay + self.typewriterDelayNormal
                             self.typewriterLongDelayWaiting = true
                         else
-                            self.typewriterDelay = self.settings.typewriterDelayLong
+                            self.typewriterDelay = self.typewriterDelay + self.typewriterDelayLong
                             self.typewriterLongDelayWaiting = false
                         end
                     else
-                        self.typewriterDelay = self.settings.typewriterDelayNormal
+                        self.typewriterDelay = self.typewriterDelay + self.typewriterDelayNormal
                     end
                 else
                     self.typewriterFinished = true
@@ -1257,9 +1484,9 @@ function boxInstanceFunctions:update()
 
                 if not self.silent then
                     if self.voiceSound ~= nil then
-                        SFX.play{sound = self.voiceSound,delay = self.settings.typewriterSoundDelay}
+                        SFX.play{sound = self.voiceSound,delay = self.typewriterSoundDelay}
                     elseif self.settings.typewriterSoundEnabled then
-                        SFX.play{sound = self.settings.typewriterSound,delay = self.settings.typewriterSoundDelay}
+                        SFX.play{sound = RNG.irandomEntry(self.settings.typewriterSounds),delay = self.typewriterSoundDelay}
                     end
                 end
             end
@@ -1298,7 +1525,7 @@ function boxInstanceFunctions:update()
                     self:progress(true)
                 end
             else
-                if player.rawKeys.jump == KEYS_PRESSED or player.rawKeys.run == KEYS_PRESSED then
+                if (player.rawKeys.jump == KEYS_PRESSED or player.rawKeys.run == KEYS_PRESSED) and not self.typewriterUnskippable then
                     self.typewriterFinished = true
 
                     self:activateTextEvents(self.typewriterLimit+1,nil)
@@ -1311,7 +1538,7 @@ function boxInstanceFunctions:update()
     elseif self.state == STATE.SCROLL then
         local target = math.floor(self.page)+1
 
-        self.page = math.min(target,self.page + self.settings.pageScrollSpeed)
+        self.page = math.min(target,self.page + self.settings.pageScrollSpeed*timeScale)
 
         if self.page == target then
             self.state = STATE.STAY
@@ -1329,20 +1556,20 @@ function boxInstanceFunctions:update()
         local target = self.answersPageTarget
 
         if current < target then
-            page.answersPageIndex = math.min(target,current + self.settings.answerPageScrollSpeed)
+            page.answersPageIndex = math.min(target,current + self.settings.answerPageScrollSpeed*timeScale)
         elseif current > target then
-            page.answersPageIndex = math.max(target,current - self.settings.answerPageScrollSpeed)
+            page.answersPageIndex = math.max(target,current - self.settings.answerPageScrollSpeed*timeScale)
         else
             self.state = STATE.STAY
         end
     elseif self.state == STATE.IN then
-        self.openingProgress = math.min(1,self.openingProgress + self.settings.openSpeed)
+        self.openingProgress = math.min(1,self.openingProgress + self.settings.openSpeed*timeScale)
         
         if self.openingProgress == 1 then
             self.state = STATE.STAY
         end
     elseif self.state == STATE.OUT then
-        self.openingProgress = math.max(0,self.openingProgress - self.settings.openSpeed)
+        self.openingProgress = math.max(0,self.openingProgress - self.settings.openSpeed*timeScale)
 
         if self.openingProgress == 0 then
             self.state = STATE.REMOVE
@@ -1363,7 +1590,7 @@ function boxInstanceFunctions:update()
             self.portraitFrame = (math.floor(self.portraitTimer / portraitData.speakingFrameDelay) % portraitData.speakingFrames) + portraitData.idleFrames
         end
 
-        self.portraitTimer = self.portraitTimer + 1
+        self.portraitTimer = self.portraitTimer + timeScale
     end
 end
 
@@ -1633,6 +1860,26 @@ local function drawSegmentedBox(image,priority,sceneCoords,color,x,y,width,heigh
 end
 
 
+function boxInstanceFunctions:findPlacementStyle()
+    -- For auto, find a placement based on where the speaker is relative to the camera
+    if self.settings.placementStyle == PLACEMENT_STYLE.AUTO then
+        local obj = self.speakerObj
+
+        if obj == nil or obj.isValid == false then
+            return PLACEMENT_STYLE.ABOVE
+        end
+
+        if (obj.y + (obj.height or 0)*0.5) < (camera.y + camera.height*0.5) then
+            return PLACEMENT_STYLE.BELOW
+        else
+            return PLACEMENT_STYLE.ABOVE
+        end
+    end
+
+    -- Otherwise, just use the placement style provided
+    return self.settings.placementStyle
+end
+
 function boxInstanceFunctions:getDrawPosition()
     -- Handle forced pos
     local forcedPosX = self.forcedPosX
@@ -1655,19 +1902,14 @@ function boxInstanceFunctions:getDrawPosition()
     local obj = self.speakerObj
 
     if obj ~= nil and obj.isValid ~= false then
-        local x = obj.x + self.settings.offsetFromSpeakerX
-        local y = obj.y-- + self.settings.offsetFromSpeakerY - self.totalHeight*0.5
+        local width = obj.width or 0
+        local height = obj.height or 0
+        
+        local x = obj.x + width*0.5 + self.settings.offsetFromSpeakerX
+        local y = obj.y
 
-        if obj.width ~= nil then
-            x = x + obj.width*0.5
-        end
-
-        if y < (camera.y + camera.height*0.5) then
-            if obj.height ~= nil then
-                y = y + obj.height
-            end
-
-            y = y + self.totalHeight*0.5 - self.settings.offsetFromSpeakerY
+        if self.placementStyle == PLACEMENT_STYLE.BELOW then
+            y = y + height + self.totalHeight*0.5 - self.settings.offsetFromSpeakerY
         else
             y = y - self.totalHeight*0.5 + self.settings.offsetFromSpeakerY
         end
@@ -1700,6 +1942,10 @@ function boxInstanceFunctions:draw()
     if self.keepOnScreen and sceneCoords then
         local minDistance = self.settings.minDistanceFromEdge
         local b = getBoundaries()
+
+        if self.speakerNameLayout ~= nil and self.settings.speakerNameOnTop then
+            b.top = b.top + self.speakerNameLayout.height
+        end
 
         x = math.clamp(x,b.left + self.totalWidth *0.5 + minDistance,b.right  - self.totalWidth *0.5 - minDistance)
         y = math.clamp(y,b.top  + self.totalHeight*0.5 + minDistance,b.bottom - self.totalHeight*0.5 - minDistance)
@@ -1884,6 +2130,9 @@ function boxInstanceFunctions:draw()
             drawHeight = math.min(drawHeight,boxCutoffHeight)
         end
 
+        drawWidth = math.floor(drawWidth + 0.5)
+        drawHeight = math.floor(drawHeight + 0.5)
+
         Graphics.drawBox{
             texture = mainBuffer,target = fullBuffer,priority = self.priority,
             x = 0,y = self.mainOffsetY,
@@ -1894,7 +2143,7 @@ function boxInstanceFunctions:draw()
             sceneCoords = sceneCoords,
             color = Color.white.. opacity,
 
-            x = math.floor(x - drawWidth*0.5 + 0.5),y = math.floor(y - drawHeight*0.5 + 0.5),
+            x = x - drawWidth*0.5,y = y - drawHeight*0.5,
             width = drawWidth,height = drawHeight,
             sourceWidth = drawWidth,sourceHeight = drawHeight,
             sourceX = self.mainWidth*0.5 - drawWidth*0.5,sourceY = (self.mainHeight + self.mainOffsetY)*0.5 - drawHeight*0.5,
@@ -1941,6 +2190,10 @@ function littleDialogue.onDraw()
 end
 
 function littleDialogue.onMessageBox(eventObj,text,playerObj,npcObj)
+    if eventObj.cancelled then
+        return
+    end
+    
     littleDialogue.create{
         text = text,
         speakerObj = npcObj or playerObj or player,
@@ -1981,10 +2234,11 @@ littleDialogue.defaultBoxSettings = {
 
 
     -- Typewriter effect related
-    typewriterEnabled = false, -- If the typewriter effect is enabled.
-    typewriterDelayNormal = 2, -- The usual delay between each character.
-    typewriterDelayLong = 16,  -- The extended delay after any of the special delaying characters, listed below.
-    typewriterSoundDelay = 5,  -- How long there must between each sound.
+    typewriterEnabled = false,     -- If the typewriter effect is enabled.
+    typewriterDelayNormal = 2,     -- The usual delay between each character.
+    typewriterDelayLong = 16,      -- The extended delay after any of the special delaying characters, listed below.
+    typewriterSoundDelay = 5,      -- How long there must between each sound.
+    typewriterUnskippable = false, -- If true, the player will not be able to skip the typewriter effect by pressing the jump button.
 
     -- Characters that, when hit by the typewriter effects, causes a slightly longer delay.
     typewriterDelayCharacters = table.map{string.byte("."),string.byte(","),string.byte("!"),string.byte("?")},
@@ -2003,6 +2257,7 @@ littleDialogue.defaultBoxSettings = {
 
     offsetFromSpeakerX = 0,   -- How horizontally far away the box is from the NPC saying it.
     offsetFromSpeakerY = -40, -- How vertically far away the box is from the NPC saying it.
+    placementStyle = PLACEMENT_STYLE.AUTO, -- Can be "ABOVE", "BELOW" or "AUTO". Determines how the box is placed relative to the speaker based on where it is on screen.
 
     pageOffset = 0, -- How far away each text page is from each other.
 
@@ -2069,6 +2324,10 @@ littleDialogue.registerStyle("yi",{
 littleDialogue.registerStyle("ml",{
     textColor = Color.fromHexRGB(0x303030),
     speakerNameColor = Color.fromHexRGB(0x303030),
+
+    answerUnselectedColor = Color.fromHexRGB(0x303030),
+    answerSelectedColor = Color.fromHexRGB(0x303030),
+
     typewriterEnabled = true,
     borderSize = 12,
     showTextWhileOpening = true,
@@ -2137,6 +2396,9 @@ littleDialogue.registerStyle("drSmall",{
     textYScale = 1,
     textMaxWidth = 174,
     textColor = Color.black,
+
+    answerUnselectedColor = Color.black,
+    answerSelectedColor = Color.black,
 
     speakerNameXScale = 1,
     speakerNameYScale = 1,
