@@ -1,6 +1,6 @@
 local nobrokensmbxkicker = require("nobrokensmbxkicker")
 
-local furyinventory = require("furyinventory")
+local inventory = require("simpleInventory")
 
 local health = require("customHealth")
 

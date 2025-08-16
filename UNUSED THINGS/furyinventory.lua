@@ -23,7 +23,7 @@ local warpTransition = require("warpTransition") --If using warpTransition, unco
 local modernReserveItems = require("modernReserveItems")
 
 furyinventory.furyinventoryopened = false
-GameData.toggleoffinventory = false --An all-in-one toggler for the furyinventory script. This can be used outside of requiring the library, and is useful for executing with scripts that stack if required bidirectionally.
+GameData.toggleoffinventory = true --An all-in-one toggler for the furyinventory script. This can be used outside of requiring the library, and is useful for executing with scripts that stack if required bidirectionally.
 
 local cooldown = 0
 
