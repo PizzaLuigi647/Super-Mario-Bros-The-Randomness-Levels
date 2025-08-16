@@ -1,21 +1,17 @@
+local CAMERA_WIDTH = 1066
+local CAMERA_HEIGHT = 600
+
 function onStart()
-	Graphics.setMainFramebufferSize(960,540)
-    camera.width,camera.height = Graphics.getMainFramebufferSize()
-
-    -- Resize 600-pixel tall sections to be 540 pixels tall
-    for _,section in ipairs(Section.get()) do
-        local bounds = section.boundary
-
-        if (bounds.bottom - bounds.top) == 600 then
-            bounds.top = bounds.bottom - 540
-            section.boundary = bounds
-        end
-    end
+    camera.width = CAMERA_WIDTH
+    camera.height = CAMERA_HEIGHT
+    Graphics.setMainFramebufferSize(CAMERA_WIDTH, CAMERA_HEIGHT)
 end
 
 function onCameraUpdate()
-    camera.width,camera.height = Graphics.getMainFramebufferSize()
+    camera.width, camera.height = Graphics.getMainFramebufferSize()
 end
+
+-- TOTALLY NOT STOLEN Widescreen code, TRRRUUUUSSSSTTTT MEEEEE,,, :eyes: 
 
 local nobrokensmbxkicker = require("nobrokensmbxkicker")
 
